@@ -38,19 +38,6 @@ def _load_secret_from_toml(key: str) -> Optional[str]:
     return None
 
 
-def load_json_file(file_path):
-    """Load a JSON file."""
-    try:
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"Error: The file {file_path} was not found.")
-        return None
-    except json.JSONDecodeError:
-        print(f"Error: The file {file_path} is not a valid JSON file.")
-        return None
-
-
 def parse_budget(budget_str):
     """Parse budget string (e.g., '$300') into a number."""
     return float(re.sub(r'[^\d.]', '', budget_str))
@@ -58,7 +45,7 @@ def parse_budget(budget_str):
 
 def get_place_details(client, place):
     """Get estimated cost and review for a place using OpenAI."""
-    prompt = f"Provide an estimated cost (in USD) and a one-sentence review score (1-10) for visiting '{place}'. Return the output in JSON format with keys 'cost' and 'review_score'."
+    prompt = f"Provide an estimated cost (in USD) and a review score (1-10) for visiting '{place}'. Return the output in JSON format with keys 'cost' and 'review_score'."
     try:
         response = client.chat.completions.create(
             model="gpt-5",
@@ -69,8 +56,6 @@ def get_place_details(client, place):
             response_format={"type": "json_object"}
         )
         raw_response = response.choices[0].message.content
-        print(f"Raw OpenAI response for '{place}': {raw_response}")
-        
         details = json.loads(raw_response)
         # Basic validation and type conversion
         if 'cost' in details and 'review_score' in details:
@@ -98,20 +83,11 @@ def get_place_details(client, place):
         return None
 
 
-def budget_agent(multiple_reels_output_path, style_agent_output_path, total_budget_str):
+def budget_agent(non_neg_places: list, neg_places: list, total_budget_str: str):
     """
     Main function for the budget agent.
     """
-    # Load inputs
-    multiple_reels_data = load_json_file(multiple_reels_output_path)
-    style_agent_data = load_json_file(style_agent_output_path)
     total_budget = parse_budget(total_budget_str)
-
-    if multiple_reels_data is None or style_agent_data is None:
-        return
-
-    non_neg_places = multiple_reels_data.get('non_neg_places', [])
-    neg_places = style_agent_data.get('neg_places', [])
 
     # Filter places
     unique_neg_places = [place for place in list(set(neg_places)) if place not in non_neg_places]
@@ -174,4 +150,15 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    budget_agent(args.multiple_reels_output, args.style_agent_output, args.total_budget)
+    # Load inputs
+    multiple_reels_data = load_json_file(args.multiple_reels_output)
+    style_agent_data = load_json_file(args.style_agent_output)
+
+    if multiple_reels_data is None or style_agent_data is None:
+        print("Error: Could not load input files. Exiting.")
+        exit()
+
+    non_neg_places = multiple_reels_data.get('non_neg_places', [])
+    neg_places = style_agent_data.get('neg_places', [])
+
+    budget_agent(non_neg_places, neg_places, args.total_budget)
