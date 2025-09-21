@@ -1,5 +1,7 @@
 import openai
 from openai import OpenAI
+import streamlit as st
+
 def build_prompt(dietary_restrictions: str, location: str) -> str:
     """
     Build a prompt for OpenAI API to generate restaurant suggestions
@@ -15,6 +17,7 @@ def build_prompt(dietary_restrictions: str, location: str) -> str:
     - Return only the restaurant names (no links, no descriptions).
     - Each restaurant should be on its own line.
     - Do not include anything else besides the list.
+    - Return the JSON in a single ```json``` fenced code block.
     """
     return prompt.strip()
 

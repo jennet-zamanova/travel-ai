@@ -2,6 +2,7 @@ import json
 import streamlit as st
 
 from agents.budget_agent import budget_agent
+from agents.chat_restaurants import get_restaurant_suggestions
 from agents.logistics.logistics import extract_json_from_text, generate_itinerary
 from agents.logistics.visualize_logistics import visualize_itinerary
 from agents.multiple_reels import process_all_reels
@@ -16,7 +17,7 @@ step = st.session_state.get("step", 1)
 
 if step == 1:
     st.header("Step 1: Where do you want to go?")
-    num_locations = st.number_input("How many locations do you want to add?", min_value=1, max_value=20, value=2)
+    num_locations = st.number_input("How many locations do you want to add?", min_value=1, max_value=20, value=1)
     cities = []
     for i in range(num_locations):
         city = st.text_input(f"Enter city {i+1}", key=f"city_{i}")
@@ -53,7 +54,7 @@ elif step == 2:
 # ---------- Step 3: Preferences ----------
 elif step == 3:
     st.header("Step 3: Traveler preferences")
-    budget = st.number_input("Budget ($)", min_value=0, max_value=None, value="min", step=10)
+    budget = st.number_input("Budget ($)", min_value=0, max_value=None, value=500, step=10)
     preferences = st.text_area(
         "Enter your travel preferences (food, pace, accessibility, budget, interests)",
         value="Slow-paced, food + museums, sustainable travel, public transport preferred",
@@ -66,11 +67,17 @@ elif step == 3:
         default=["train", "walk", "bus"],
     )
 
+    dietary_restrictions = st.multiselect(
+        "Dietary restrictions (app will prioritize restaurants that abide them)",
+        options=["vegetarian", "vegan", "gluten-free", "halal", "nut-free"],
+    )
+
     if st.button("Upload Reels Collection"):
         st.session_state["preferences"] = preferences
         st.session_state["budget"] = budget
         st.session_state["travelers"] = travelers
         st.session_state["transport_options"] = transport_options
+        st.session_state["dietary_restrictions"] = dietary_restrictions
         st.session_state["step"] = 4
         st.rerun()
 
@@ -103,6 +110,7 @@ elif step == 5:
     preferences = st.session_state.get("preferences", "")
     travelers = st.session_state.get("travelers", 1)
     transport_options = st.session_state.get("transport_options", [])
+    dietary_restrictions = st.session_state.get("dietary_restrictions", [])
     summary = st.session_state.get("summary", "")
     locations = st.session_state.get("locations", [])
     locations_and_ratings = st.session_state.get("locations_and_ratings", {})
@@ -118,10 +126,19 @@ elif step == 5:
                 print(extract_json_from_text(json_output)["places"])
                 style_locations += extract_json_from_text(json_output)["places"].split("\n")
 
-        print("finsihed style")
+        print("finished style")
         print(style_locations)
 
         diet_locations = []
+        with st.spinner("Generating Restaurants — this may take a few seconds..."):
+            for city in location_dates.keys():
+                json_output = get_restaurant_suggestions(", ".join(dietary_restrictions), city)
+                print(json_output, type(json_output))
+                print(extract_json_from_text(json_output))
+                diet_locations += extract_json_from_text(json_output)
+        
+        print("finished diet")
+        print(diet_locations)
 
         with st.spinner("Generating Budget — this may take a few seconds..."):
             print("doing budget")
@@ -129,8 +146,7 @@ elif step == 5:
 
         final_locations = []
 
-        print("finsihed budget")
-
+        print("finished budget")
         print(final_locations_info)
 
         for place_info in final_locations_info["final_places"]:

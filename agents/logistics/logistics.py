@@ -92,17 +92,24 @@ def extract_json_from_text(text: str) -> Any:
     # find triple-backtick json block
     m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
     if not m:
-        # fallback: try to find first `{...}` large chunk
-        m2 = re.search(r"(\{\s*\"trip_overview\".*\})", text, flags=re.S)
-        if not m2:
-            # last resort: try to find any JSON-like object
-            try:
-                return json.loads(text)
-            except Exception:
-                return None
+        m3 = m = re.search(r"```json\s*(\[.*?\]|\{.*?\})\s*```", text, flags=re.S)
+        if not m3:
+            # fallback: try to find first `{...}` large chunk
+            m2 = re.search(r"(\{\s*\"trip_overview\".*\})", text, flags=re.S)
+            if not m2:
+                # last resort: try to find any JSON-like object
+                try:
+                    return json.loads(text)
+                except Exception:
+                    return None
+            else:
+                try:
+                    return json.loads(m2.group(1))
+                except Exception:
+                    return None
         else:
             try:
-                return json.loads(m2.group(1))
+                return json.loads(m3.group(1))
             except Exception:
                 return None
     try:
@@ -125,7 +132,7 @@ def generate_itinerary(location_dates, locations, preferences, transport_options
                 {"role": "user", "content": prompt},
                 ],
                 temperature=float(temperature),
-                max_tokens=int(max_tokens),
+                # max_tokens=int(max_tokens),
             )
 
 
@@ -135,9 +142,12 @@ def generate_itinerary(location_dates, locations, preferences, transport_options
 
             st.subheader("Raw model output")
             st.code(raw_text[:100], language="markdown")
-
+            print("raw text: ")
+            print(raw_text)
 
             parsed = extract_json_from_text(raw_text)
+            print("plan: ")
+            print(parsed)
             if parsed:
                 return parsed
             else:

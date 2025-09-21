@@ -51,7 +51,6 @@ def summarize_reel_batch(reels_batch):
     """
     Sends a batch of reels (montage + transcript) to GPT for summary.
     """
-    st.write("request 1")
     messages = [
         {
             "role": "system", 
