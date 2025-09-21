@@ -4,6 +4,7 @@ import os
 import re
 from openai import OpenAI
 from typing import Optional
+import streamlit as st
 
 try:
     import tomllib
@@ -48,7 +49,7 @@ def get_place_details(client, place):
     prompt = f"Provide an estimated cost (in USD) and a review score (1-10) for visiting '{place}'. Return the output in JSON format with keys 'cost' and 'review_score'."
     try:
         response = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that provides travel information."},
                 {"role": "user", "content": prompt}
@@ -83,22 +84,14 @@ def get_place_details(client, place):
         return None
 
 
-def budget_agent(non_neg_places: list, neg_places: list, total_budget_str: str):
+def budget_agent(non_neg_places: list, neg_places: list, total_budget: float):
     """
     Main function for the budget agent.
     """
-    total_budget = parse_budget(total_budget_str)
-
     # Filter places
     unique_neg_places = [place for place in list(set(neg_places)) if place not in non_neg_places]
 
-    api_key = os.getenv('OPENAI_API_KEY') or _load_secret_from_toml('api_key')
-    if not api_key or "your-api-key" in api_key:
-        raise ValueError(
-            "OpenAI API key not found or is a placeholder. "
-            "Set OPENAI_API_KEY, or fill `secret/keys.local.toml`."
-        )
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
     # Get details for non-neg places and calculate initial cost
     non_neg_places_details = []
@@ -134,31 +127,33 @@ def budget_agent(non_neg_places: list, neg_places: list, total_budget_str: str):
         'total_estimated_cost': current_cost,
         'total_budget': total_budget
     }
+
+    return output
     
-    output_path = 'budget_output.json'
-    with open(output_path, 'w') as f:
-        json.dump(output, f, indent=4)
+    # output_path = 'budget_output.json'
+    # with open(output_path, 'w') as f:
+    #     json.dump(output, f, indent=4)
 
-    print(f"Budget analysis complete. Output saved to {output_path}")
+    # print(f"Budget analysis complete. Output saved to {output_path}")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Plan a trip within a budget.")
-    parser.add_argument("multiple_reels_output", help="Path to the JSON output from multiple_reels.py")
-    parser.add_argument("style_agent_output", help="Path to the JSON output from style_agent.py")
-    parser.add_argument("total_budget", help="Total budget for the trip (e.g., '$500').")
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description="Plan a trip within a budget.")
+#     parser.add_argument("multiple_reels_output", help="Path to the JSON output from multiple_reels.py")
+#     parser.add_argument("style_agent_output", help="Path to the JSON output from style_agent.py")
+#     parser.add_argument("total_budget", help="Total budget for the trip (e.g., '$500').")
     
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    # Load inputs
-    multiple_reels_data = load_json_file(args.multiple_reels_output)
-    style_agent_data = load_json_file(args.style_agent_output)
+#     # Load inputs
+#     multiple_reels_data = load_json_file(args.multiple_reels_output)
+#     style_agent_data = load_json_file(args.style_agent_output)
 
-    if multiple_reels_data is None or style_agent_data is None:
-        print("Error: Could not load input files. Exiting.")
-        exit()
+#     if multiple_reels_data is None or style_agent_data is None:
+#         print("Error: Could not load input files. Exiting.")
+#         exit()
 
-    non_neg_places = multiple_reels_data.get('non_neg_places', [])
-    neg_places = style_agent_data.get('neg_places', [])
+#     non_neg_places = multiple_reels_data.get('non_neg_places', [])
+#     neg_places = style_agent_data.get('neg_places', [])
 
-    budget_agent(non_neg_places, neg_places, args.total_budget)
+#     budget_agent(non_neg_places, neg_places, args.total_budget)

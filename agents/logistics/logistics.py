@@ -31,7 +31,7 @@ class TripPlan(TypedDict):
 
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-def build_prompt(location_dates: Dict[str, Dict[str, str]], preferences: str, transport_options: List[str], travelers: int, locations: List[str]) -> str:
+def build_prompt(location_dates: Dict[str, Dict[str, str]], preferences: str, transport_options: List[str], travelers: int, locations: List[str], addl_info) -> str:
     """Create an LLM prompt that requests both a human-readable itinerary and a strict JSON block.
 
 
@@ -79,6 +79,7 @@ def build_prompt(location_dates: Dict[str, Dict[str, str]], preferences: str, tr
     f"Traveler preferences: {preferences}\n"
     f"Allowed transport modes: {', '.join(transport_options)}\n"
     f"Number of travelers: {travelers}\n\n"
+    f"Additional Info on Locations: {addl_info}\n\n"
     "Return the JSON in a single ```json``` fenced code block and then the markdown itinerary."
     )
 
@@ -109,11 +110,11 @@ def extract_json_from_text(text: str) -> Any:
     except Exception:
         return None
     
-def generate_itinerary(location_dates, locations, preferences, transport_options, travelers, temperature=0.2, max_tokens=2000, model="gpt-4o-mini"):
+def generate_itinerary(location_dates, locations, preferences, transport_options, travelers, addl_info, temperature=0.2, max_tokens=2000, model="gpt-4o-mini"):
     if OpenAI is None:
         st.error("openai client library not available. Please `pip install openai` and restart the app.")
     else:
-        prompt = build_prompt(location_dates, preferences, transport_options, travelers, locations)
+        prompt = build_prompt(location_dates, preferences, transport_options, travelers, locations, addl_info)
 
     with st.spinner("Generating itinerary — this may take a few seconds..."):
         try:
