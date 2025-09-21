@@ -4,6 +4,32 @@ import streamlit as st
 from openai import OpenAI
 import re
 
+from typing import List, Literal, Optional, TypedDict
+
+
+TransportMode = Literal["walk", "bus", "metro", "train", "taxi", "rideshare", "bike", "ferry", "flight", "none"]
+
+
+class ItineraryItem(TypedDict):
+    day_index: int
+    date: Optional[str]  # ISO YYYY-MM-DD or None
+    start_time: Optional[str]  # ISO HH:MM:SS or None
+    end_time: Optional[str]  # ISO HH:MM:SS or None
+    activity_title: str
+    location_name: str
+    transport_mode: TransportMode
+    transport_details: str  # "N/A" if not moving
+    duration_minutes: int
+    cost_estimate: str
+    cultural_tips: List[str]  # 1–3 short strings
+    notes: str  # "" if none
+
+
+class TripPlan(TypedDict):
+    trip_overview: str
+    itinerary: List[ItineraryItem]
+
+
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 def build_prompt(location_dates: Dict[str, Dict[str, str]], preferences: str, transport_options: List[str], travelers: int, locations: List[str]) -> str:
     """Create an LLM prompt that requests both a human-readable itinerary and a strict JSON block.
@@ -18,14 +44,33 @@ def build_prompt(location_dates: Dict[str, Dict[str, str]], preferences: str, tr
 
     system = (
     "You are an expert travel planner. Given the trip specification below, produce two outputs separated clearly:\n"
-    "1) A JSON block wrapped in triple backticks labeled as ```json``` that contains a machine-readable itinerary for the traveler. "
+    "1) A JSON block wrapped in triple backticks labeled as ```json``` that contains a STRICT machine-readable itinerary.\n"
     "2) A human-readable markdown itinerary summary suitable for sending to the traveler.\n\n"
-    "REQUIREMENTS for the JSON:\n"
-    "- Top-level keys: `trip_overview` (brief), `itinerary` (array).\n"
-    "- Each itinerary item must include: `day_index`, `date` (ISO YYYY-MM-DD if possible), `start_time` (ISO time if available), `end_time`, `activity_title`, `location_name`, `transport_mode` (if moving), `transport_details` (how to book, duration), `duration_minutes`, `cost_estimate` (string), `cultural_tips` (array of short tips), `notes`.\n"
-    "- After the JSON section, include a readable markdown itinerary with times, travel instructions, and cultural tips for each stop.\n\n"
-    "Be concise but specific: include recommended transport lines (e.g., train names or typical journey times), suggested time blocks for visits, and 2-3 cultural tips per city (short). If the input lacks dates, create a day-by-day plan in logical order. Prioritize public transport when allowed. Assume moderate budget unless user says otherwise.\n\n"
-    )
+    "STRICT JSON REQUIREMENTS:\n"
+    "- Top-level object must include:\n"
+    "   - `trip_overview` (string, 1–2 sentences)\n"
+    "   - `itinerary` (array of objects)\n"
+    "- Each itinerary item object must contain ALL of these fields (no omissions, no extra keys):\n"
+    "   - `day_index` (integer, starting from 1)\n"
+    "   - `date` (string, ISO format YYYY-MM-DD if known, otherwise null)\n"
+    "   - `start_time` (string, ISO 24h time HH:MM:SS if known, otherwise null)\n"
+    "   - `end_time` (string, ISO 24h time HH:MM:SS if known, otherwise null)\n"
+    "   - `activity_title` (string, concise name of activity)\n"
+    "   - `location_name` (string, place or venue)\n"
+    "   - `transport_mode` (string, one of: walk, bus, metro, train, taxi, rideshare, bike, ferry, flight, none)\n"
+    "   - `transport_details` (string, must include booking info or travel duration if applicable, otherwise 'N/A')\n"
+    "   - `duration_minutes` (integer, >=0)\n"
+    "   - `cost_estimate` (string, e.g., 'Free', '£20-30 per person')\n"
+    "   - `cultural_tips` (array of 1–3 short strings, each under 120 characters)\n"
+    "   - `notes` (string, optional advice or remarks; if none, use empty string)\n\n"
+    "VALIDATION RULES:\n"
+    "- All fields must appear, even if null or empty.\n"
+    "- No trailing commas, no comments, must be valid JSON.\n"
+    "- Ensure logical consistency: start_time < end_time, duration_minutes matches the difference when possible.\n"
+    "- Prefer public transport when available. Assume moderate budget unless specified.\n\n"
+    "After the JSON section, write a concise but engaging MARKDOWN itinerary summary for the traveler with times, travel instructions, and cultural tips for each stop.\n"
+)
+
 
 
     user_section = (
@@ -93,22 +138,10 @@ def generate_itinerary(location_dates, locations, preferences, transport_options
 
             parsed = extract_json_from_text(raw_text)
             if parsed:
-                st.subheader("Parsed JSON itinerary")
-                st.json(parsed)
-
-
-                st.download_button(
-                "Download itinerary JSON",
-                data=json.dumps(parsed, indent=2),
-                file_name="itinerary.json",
-                mime="application/json",
-                )
+                return parsed
             else:
                 st.warning("Could not extract machine-readable JSON from the response. The raw output is shown above.")
 
 
         except Exception as e:
             st.error(f"Error while calling the LLM: {e}")
-
-
-# def visualize_itinerary(itinerary):

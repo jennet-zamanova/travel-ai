@@ -2,57 +2,13 @@ import json
 import streamlit as st
 
 from agents.logistics.logistics import extract_json_from_text, generate_itinerary
+from agents.logistics.visualize_logistics import visualize_itinerary
 from agents.multiple_reels import process_all_reels
 from agents.process_video import process_videos
 
 st.title("Welcome to Travel AI 👋")
 
 st.subheader("Trip specification")
-# col1, col2 = st.columns([2, 1])
-# with col1:
-#     # locations_text = st.text_area(
-#     # "Locations and rough time windows (one per line). Example: `Paris, France | 2025-10-01 to 2025-10-05` or `Kyoto - 2026-04-05 (2 days)`",
-#     # height=140,
-#     # value="Paris, France | 2025-10-01 to 2025-10-05\nLyon, France | 2025-10-06 to 2025-10-07",
-#     # )
-
-#     # Allow user to dynamically add any city they want
-#     st.markdown("### Add Locations")
-#     num_locations = st.number_input("How many locations do you want to add?", min_value=1, max_value=20, value=2)
-
-#     location_dates = {}
-#     for i in range(num_locations):
-#         st.markdown(f"#### Location {i+1}")
-#         city = st.text_input(f"Enter city {i+1}", key=f"city_{i}")
-#         col11, col12 = st.columns(2)
-#         with col11:
-#             start = st.date_input(f"Start date for {city or 'this city'}", key=f"start_{i}")
-#         with col12:
-#             end = st.date_input(f"End date for {city or 'this city'}", key=f"end_{i}")
-#         if city:
-#             location_dates[city] = {"start": start.isoformat() if start else None, "end": end.isoformat() if end else None}
-
-
-#     preferences = st.text_area(
-#     "Traveler preferences (food, pace, accessibility, budget, interests)",
-#     value="Slow-paced, food + museums, sustainable travel, public transport preferred",
-#     height=120,
-#     )
-
-
-# with col2:
-#     start_date = st.date_input("Trip start date (optional)", value=None)
-#     end_date = st.date_input("Trip end date (optional)", value=None)
-#     travelers = st.number_input("Number of travelers", min_value=1, max_value=20, value=1)
-#     transport_options = st.multiselect(
-#         "Allowed transport modes (app will prioritize these)",
-#         options=["train", "bus", "flight", "car", "bike", "walk", "ferry"],
-#         default=["train", "walk", "bus"],
-#     )
-
-
-# st.markdown("---")
-
 
 # ---------- Step 1: Enter locations ----------
 step = st.session_state.get("step", 1)
@@ -150,17 +106,19 @@ elif step == 5:
     if st.button("Generate Itinerary"):
         # process_videos(uploaded_files)
         
-        generate_itinerary(location_dates, locations, preferences, transport_options, travelers)
-        # st.session_state["step"] = 5
+        plan = generate_itinerary(location_dates, locations, preferences, transport_options, travelers)
 
-
-
-
-
-
-# ---------- Generation and output ----------
-
-# if st.button("Generate Itinerary"):
-    # generate_itinerary([], preferences, transport_options, travelers, start_date, end_date)
-
-    
+        st.session_state["plan"] = plan
+        st.session_state["step"] = 6
+        st.rerun()
+        
+elif step == 6:
+    plan = st.session_state.get("plan", {})
+    visualize_itinerary(plan)
+    st.download_button(
+        "Download itinerary JSON",
+        data=json.dumps(plan, indent=2),
+        file_name="itinerary.json",
+        mime="application/json",
+    )
+  
