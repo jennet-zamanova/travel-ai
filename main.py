@@ -5,7 +5,6 @@ from agents.budget_agent import budget_agent
 from agents.logistics.logistics import extract_json_from_text, generate_itinerary
 from agents.logistics.visualize_logistics import visualize_itinerary
 from agents.multiple_reels import process_all_reels
-from agents.process_video import process_videos
 from agents.style_agent import StyleAgent
 
 st.title("Welcome to Travel AI 👋")
